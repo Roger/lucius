@@ -89,6 +89,12 @@ class DBIndexer(object):
             self.dirty = True
             self.update_seq = row["seq"]
 
+    def delete(self, row):
+        self.indexer.deleteDocuments(indexers.index.Term("_id", row["id"]))
+        self.dirty = True
+        self.update_seq = row["seq"]
+        self.commit()
+
     def commit(self):
         if self.dirty:
             print "UPDATE SEQ", self.update_seq
@@ -101,7 +107,7 @@ class DBIndexer(object):
 
     def get_docs(self, ids):
         view = self.db.view("_all_docs", keys=ids, include_docs=True)
-        rows = [row["doc"] for row in view]
+        rows = [row["doc"] for row in view if row["doc"]]
         return rows
 
 
@@ -143,7 +149,11 @@ def _start_indexer(config, database):
                 continue
             if last_seq < indexer.update_seq:
                 continue
-            indexer.update(row)
+
+            if row["doc"].get("_deleted") == True:
+                indexer.delete(row)
+            else:
+                indexer.update(row)
 
 def start_indexer(database):
     if database in threads:
