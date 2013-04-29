@@ -1,4 +1,5 @@
 import os
+import time
 
 try:
     import simplejson as json
@@ -21,6 +22,7 @@ def index():
 
 @app.route("/db/<database>/<view>/<index>")
 def search(database, view, index):
+    start = time.time()
     name = "%s/%s/%s" % (database, view, index)
     query = request.args.get("q", "")
 
@@ -58,7 +60,8 @@ def search(database, view, index):
         if include_docs:
             rows = indexer.get_docs(to_fetch)
 
-    ret = {"rows": rows, "limit": limit, "skip": skip, "total_rows": len(hits)}
+    ret = {"rows": rows, "limit": limit, "skip": skip, "total_rows": len(hits),
+            "fetch_duration": time.time()-start}
     json_data = json.dumps(ret)
 
     response = Response(json_data, content_type="application/json")
