@@ -67,6 +67,9 @@ class DBIndexer(object):
         self.last_update = time.time()
 
     def update(self, row, ignore_seq=False):
+        self.set_doc_cache(row)
+        self.update_related(row["id"])
+
         #luc_docs = index_doc(row["doc"])
         safe_globals = dict(LuceneDocument=LuceneDocument,
                             _getattr_=getattr,
@@ -81,10 +84,12 @@ class DBIndexer(object):
         except Exception, error:
             print "Invalid indexer"
             print error
-            return
+            luc_docs = []
 
-        self.set_doc_cache(row)
         if not luc_docs:
+            self.dirty = True
+            if not ignore_seq:
+                self.update_seq = row["seq"]
             return
         if not isinstance(luc_docs, collections.Iterable):
             luc_docs = [luc_docs]
@@ -108,8 +113,7 @@ class DBIndexer(object):
             luc_doc.add_field("_id", row["id"], store=True)
             self.indexer.updateDocument(indexers.index.Term("_id", row["id"]),
                     luc_doc)
-            self.update_related(row["id"])
-            print "Updating Document"
+            #print "Updating Document"
             self.dirty = True
             if not ignore_seq:
                 self.update_seq = row["seq"]
@@ -136,10 +140,16 @@ class DBIndexer(object):
         if not items:
             return
 
+        start = time.time()
+        print "Start updating related"
+
         view = self.db.view("_all_docs", keys=items, include_docs=True)
+        print "Rows Len", len(view)
+        print id, len(items)
         for row in view:
             if row["doc"]:
                 self.update(row, ignore_seq=True)
+        print "End updating related", time.time() - start, len(items)
 
     def delete(self, row):
         self.indexer.deleteDocuments(indexers.index.Term("_id", row["id"]))
