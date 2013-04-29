@@ -59,28 +59,32 @@ class CustomIndexer(engine.Indexer):
 class DBIndexer(object):
     def __init__(self, db, indexer_name, func, index_path="/tmp/couchdb_index"):
         self.db = db
-        self.func = func
+        self.func = self.compile_indexer(func)
         indexer_dir = "%s/%s" % (index_path, indexer_name)
         self.indexer = CustomIndexer(indexer_dir)
         self.dirty = False
         self.update_seq = self.indexer.get_sequence()
         self.last_update = time.time()
 
-    def update(self, row, ignore_seq=False):
-        self.set_doc_cache(row)
-        self.update_related(row["id"])
-
-        #luc_docs = index_doc(row["doc"])
+    def compile_indexer(self, func):
         safe_globals = dict(LuceneDocument=LuceneDocument,
                             _getattr_=getattr,
                             _getitem_=lambda o, k: o[k],
                             __builtins__=safe_builtins)
         safe_locals = {}
-        obj = compile_restricted(self.func, "<string>", "exec")
+
+        obj = compile_restricted(func, "<string>", "exec")
+        #obj = compile(func, "<string>", "exec")
         eval(obj, safe_globals, safe_locals)
         index_doc = safe_locals.get("fun")
+        return index_doc
+
+    def update(self, row, ignore_seq=False):
+        self.set_doc_cache(row)
+        self.update_related(row["id"])
+
         try:
-            luc_docs = index_doc(row["doc"])
+            luc_docs = self.func(row["doc"])
         except Exception, error:
             print "Invalid indexer"
             print error
