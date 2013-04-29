@@ -1,3 +1,4 @@
+import time
 import thread
 import collections
 
@@ -63,6 +64,7 @@ class DBIndexer(object):
         self.indexer = CustomIndexer(indexer_dir)
         self.dirty = False
         self.update_seq = self.indexer.get_sequence()
+        self.last_update = time.time()
 
     def update(self, row, ignore_seq=False):
         #luc_docs = index_doc(row["doc"])
@@ -112,6 +114,9 @@ class DBIndexer(object):
             if not ignore_seq:
                 self.update_seq = row["seq"]
 
+            if time.time() - self.last_update > 15:
+                self.commit()
+
     def get_doc(self, docid):
         cache_key = "docs/%s" % docid
         doc = cache.get(cache_key)
@@ -149,6 +154,7 @@ class DBIndexer(object):
             print "Commiting index changes"
             self.indexer.commit(str(self.update_seq))
             self.dirty = False
+        self.last_update = time.time()
 
     def search(self, query, limit=25):
         return self.indexer.search(query, count=limit)
