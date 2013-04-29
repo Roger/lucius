@@ -3,7 +3,7 @@ import collections
 
 from flask import current_app
 
-from utils import LuceneDocument
+from utils import LuceneDocument, get_field
 from lupyne import engine
 from lupyne.engine import indexers
 
@@ -13,6 +13,9 @@ from RestrictedPython.Guards import safe_builtins
 import couchdb
 
 import lucene
+
+from werkzeug.contrib.cache import SimpleCache
+cache = SimpleCache()
 
 db_indexers = {}
 threads = {}
@@ -61,7 +64,7 @@ class DBIndexer(object):
         self.dirty = False
         self.update_seq = self.indexer.get_sequence()
 
-    def update(self, row):
+    def update(self, row, ignore_seq=False):
         #luc_docs = index_doc(row["doc"])
         safe_globals = dict(LuceneDocument=LuceneDocument,
                             _getattr_=getattr,
@@ -76,23 +79,68 @@ class DBIndexer(object):
         except Exception, error:
             print "Invalid indexer"
             print error
+            return
 
+        self.set_doc_cache(row)
         if not luc_docs:
             return
         if not isinstance(luc_docs, collections.Iterable):
             luc_docs = [luc_docs]
 
         for luc_doc in luc_docs:
+            # search related documents and add field to the index
+            related_items = set()
+            for related_field in luc_doc._related_fields:
+                name, docid, doc_field, field_type, params = related_field
+                related_items.add(docid)
+                doc = self.get_doc(docid)
+                field_value = get_field(doc, doc_field)
+                if not field_value:
+                    print "Field Not Found: %s" % doc_field
+                    continue
+                luc_doc.add_field(name, field_value, field_type, **params)
+
+            for related_item in related_items:
+                luc_doc.add_field("_related_item", related_item)
+
             luc_doc.add_field("_id", row["id"], store=True)
-            self.indexer.updateDocument(indexers.index.Term("_id", row["id"]), luc_doc)
+            self.indexer.updateDocument(indexers.index.Term("_id", row["id"]),
+                    luc_doc)
+            self.update_related(row["id"])
             print "Updating Document"
             self.dirty = True
-            self.update_seq = row["seq"]
+            if not ignore_seq:
+                self.update_seq = row["seq"]
+
+    def get_doc(self, docid):
+        cache_key = "docs/%s" % docid
+        doc = cache.get(cache_key)
+        if not doc:
+            doc = self.db.load(docid)
+            if doc:
+                cache.set(cache_key, doc, timeout=60)
+        return doc
+
+    def set_doc_cache(self, row):
+        cache_key = "docs/%s" % row["id"]
+        cache.set(cache_key, row["doc"], timeout=60)
+
+    def update_related(self, id):
+        items = [hit.dict()["_id"] \
+                for hit in self.indexer.search("_related_item:%s" % id)]
+        if not items:
+            return
+
+        view = self.db.view("_all_docs", keys=items, include_docs=True)
+        for row in view:
+            if row["doc"]:
+                self.update(row, ignore_seq=True)
 
     def delete(self, row):
         self.indexer.deleteDocuments(indexers.index.Term("_id", row["id"]))
         self.dirty = True
         self.update_seq = row["seq"]
+        self.update_related(row["id"])
         self.commit()
 
     def commit(self):

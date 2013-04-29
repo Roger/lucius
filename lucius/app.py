@@ -89,7 +89,7 @@ def start_app():
     except ImportError:
         config = None
     configure_app(app, config)
-    app.run(port=config.PORT)
+    app.run(port=config.PORT, threaded=True)
 
 if __name__ == "__main__":
     start_app()
