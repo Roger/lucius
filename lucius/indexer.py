@@ -121,7 +121,7 @@ class DBIndexer(object):
         cache_key = "docs/%s" % docid
         doc = cache.get(cache_key)
         if not doc:
-            doc = self.db.load(docid)
+            doc = self.db.get(docid)
             if doc:
                 cache.set(cache_key, doc, timeout=60)
         return doc
