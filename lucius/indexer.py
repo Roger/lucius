@@ -121,15 +121,13 @@ class DBIndexer(object):
                 luc_doc.add_field("_related_item", related_item)
 
             luc_doc.add_field("_id", row["id"], store=True)
-            self.indexer.updateDocument(indexers.index.Term("_id", row["id"]),
-                    luc_doc)
             #print "Updating Document"
             self.dirty = True
             if not ignore_seq:
                 self.update_seq = row["seq"]
 
-            if time.time() - self.last_update > 15:
-                self.commit()
+        if time.time() - self.last_update > 15:
+            self.commit()
 
     def get_doc(self, docid):
         cache_key = "docs/%s" % docid
