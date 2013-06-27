@@ -57,8 +57,10 @@ class CustomIndexer(engine.Indexer):
         return update_seq and int(update_seq) or 0
 
 class DBIndexer(object):
-    def __init__(self, db, indexer_name, func, index_path="/tmp/couchdb_index"):
+    def __init__(self, db, indexer_name, func, index_path="/tmp/couchdb_index",
+            restrict=True):
         self.db = db
+        self.restrict = restrict
         self.func = self.compile_indexer(func)
         indexer_dir = "%s/%s" % (index_path, indexer_name)
         self.indexer = CustomIndexer(indexer_dir)
@@ -67,14 +69,18 @@ class DBIndexer(object):
         self.last_update = time.time()
 
     def compile_indexer(self, func):
-        safe_globals = dict(LuceneDocument=LuceneDocument,
+        safe_globals = dict(LuceneDocument=LuceneDocument)
+        safe_locals = {}
+        if self.restrict:
+            safe_globals.update(dict(
                             _getattr_=getattr,
                             _getitem_=lambda o, k: o[k],
                             __builtins__=safe_builtins)
-        safe_locals = {}
+                            )
 
-        obj = compile_restricted(func, "<string>", "exec")
-        #obj = compile(func, "<string>", "exec")
+            obj = compile_restricted(func, "<string>", "exec")
+        else:
+            obj = compile(func, "<string>", "exec")
         eval(obj, safe_globals, safe_locals)
         index_doc = safe_locals.get("fun")
         return index_doc
@@ -200,7 +206,7 @@ def _start_indexer(config, database):
             view_name = doc["_id"].split("_design/", 1)[1] + "/" + key
             indexer_name = "%s/%s" % (database, view_name)
             indexer = DBIndexer(db, indexer_name, value["index"],
-                    config["INDEX_PATH"])
+                    config["INDEX_PATH"], config["RESTRICT"])
             local_indexers.append(indexer)
             db_indexers[indexer_name] = indexer
             update_sequences.append(indexer.update_seq)

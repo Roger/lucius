@@ -1,4 +1,6 @@
 PROJECT_NAME = 'lucius'
+# use restricted python?
+RESTRICT = True
 DEBUG = False
 TESTING = False
 LOGGER_NAME = '%s_log' % PROJECT_NAME
