@@ -126,6 +126,9 @@ class DBIndexer(object):
             if not ignore_seq:
                 self.update_seq = row["seq"]
 
+            self.indexer.updateDocument(indexers.index.Term("_id", row["id"]),
+                    luc_doc)
+
         if time.time() - self.last_update > 15:
             self.commit()
 
