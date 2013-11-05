@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css">
+    <link rel="stylesheet" media="all" href="http://marianoguerra.github.io/json.human.js/css/demo.css" />
+    <link rel="stylesheet" media="all" href="http://marianoguerra.github.io/json.human.js/css/json.human.css" />
+
+    <script src="https://raw.github.com/marianoguerra/json.human.js/master/lib/crel.js"></script>
+    <script src="/static/json.human.js"></script>
+    <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+    <script src="http://code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+
+    <script>
+      $("body").ready(function(){
+        $("form").submit(function(e){
+          e.preventDefault();
+          $("#output").html("");
+          var query = $("#query").val();
+          var design = $("#design").val();
+          var include_docs = $("#include_docs").prop("checked");
+
+          $.ajax("/db/"+design+"?include_docs="+include_docs+"&q=" + query).done(function(data){
+            $("#output").append("<h2>Results:</h2>");
+            $.each(data.rows, function(id, doc) {
+              var node = formath(doc);
+              $("#output").append(node);
+              $("#output").append("<hr>");
+            });
+          });
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="page-header">
+        <h1>Lucius <small>python lucene couchdb indexer</small></h1>
+      </div>
+      <div class="well">
+
+        <form id="search" enctype="multipart/form-data" method="post" role="form">
+          <div class="form-group">
+            <p><label>Design</label>
+              <select id="design">
+                {% for design in designs %}
+                <option value="{{design}}">{{design}}</option>
+                {% endfor %}
+              </select>
+              <label>Include Docs?</label><input id="include_docs" type="checkbox" />
+            </p>
+            <p><label>Query</label><input class="form-control" id="query" name="query" type="input"></p>
+            <p><button type='submit' class='btn btn-primary'>Search</button></p>
+          </div>
+        </form>
+
+      </div>
+      <div class="well" id="output">
+      </div>
+    </div>
+  </body>
+</html>

@@ -4,7 +4,7 @@ import collections
 
 from flask import current_app
 
-from utils import LuceneDocument, get_field
+from .utils import LuceneDocument, get_field, get_designs, _print_
 from lupyne import engine
 from lupyne.engine import indexers
 
@@ -61,23 +61,44 @@ class DBIndexer(object):
             restrict=True):
         self.db = db
         self.restrict = restrict
-        self.func = self.compile_indexer(func)
+        self.func = self.compile_indexer(indexer_name, func)
         indexer_dir = "%s/%s" % (index_path, indexer_name)
         self.indexer = CustomIndexer(indexer_dir)
         self.dirty = False
         self.update_seq = self.indexer.get_sequence()
         self.last_update = time.time()
 
-    def compile_indexer(self, func):
+        self.views = []
+
+    def info(self):
+        """
+        Returns indexer info
+        """
+        info = {
+            #"uuid": state.getUuid(),
+            #"digest": state.getDigest(),
+            #"etag": self.indexer.etag,
+            "update_seq": self.update_seq,
+            "last_modified": self.indexer.lastModified(self.indexer.directory),
+            "fields": list(self.indexer.names()),
+            "optimized": self.indexer.optimized,
+            "doc_count": self.indexer.numDocs(),
+            "current": self.indexer.isCurrent(),
+            "del_doc": self.indexer.indexReader.numDeletedDocs(),
+            "ref_count": self.indexer.getRefCount(),
+            }
+        return info
+
+    def compile_indexer(self, indexer_name, func):
         safe_globals = dict(LuceneDocument=LuceneDocument)
         safe_locals = {}
         if self.restrict:
             safe_globals.update(dict(
+                            _print_=_print_(indexer_name),
                             _getattr_=getattr,
                             _getitem_=lambda o, k: o[k],
                             __builtins__=safe_builtins)
                             )
-
             obj = compile_restricted(func, "<string>", "exec")
         else:
             obj = compile(func, "<string>", "exec")
@@ -177,45 +198,47 @@ class DBIndexer(object):
             self.dirty = False
         self.last_update = time.time()
 
-    def search(self, query, limit=25):
-        return self.indexer.search(query, count=limit)
+    def search(self, query, limit=25, **kwargs):
+        return self.indexer.search(query, count=limit, **kwargs)
 
     def get_docs(self, ids):
         view = self.db.view("_all_docs", keys=ids, include_docs=True)
         rows = [row["doc"] for row in view if row["doc"]]
         return rows
 
-
-def _start_indexer(config, database):
+def _start_indexer(config, db_name):
     jcc_evn = lucene.getVMEnv()
     jcc_evn.attachCurrentThread()
 
     local_indexers = []
 
     server = config["COUCHDB_SERVER"]
-    db = couchdb.Database("%s/%s/" % (server, database))
+    database = couchdb.Database("%s/%s/" % (server, db_name))
 
-    view = db.view("_all_docs", startkey="_design", endkey="_design0",
-            include_docs=True)
     update_sequences = []
-    for row in view:
+    for row in get_designs(db_name, config):
         doc = row["doc"]
         ft_view = doc.get("ft", None)
         if not ft_view:
             continue
         for key, value in ft_view.iteritems():
             view_name = doc["_id"].split("_design/", 1)[1] + "/" + key
-            indexer_name = "%s/%s" % (database, view_name)
-            indexer = DBIndexer(db, indexer_name, value["index"],
+            indexer_name = "%s/%s" % (db_name, view_name)
+            indexer = DBIndexer(database, indexer_name, value["index"],
                     config["INDEX_PATH"], config["RESTRICT"])
             local_indexers.append(indexer)
             db_indexers[indexer_name] = indexer
             update_sequences.append(indexer.update_seq)
+
+    if not update_sequences:
+        print "Invalid Database"
+        return
+
     update_seq = min(update_sequences)
     del update_sequences
 
-    for row in db.changes(feed="continuous", heartbeat=10000, include_docs=True,
-            yield_beats=True, since=update_seq):
+    for row in database.changes(feed="continuous", heartbeat=10000,
+             include_docs=True, yield_beats=True, since=update_seq):
         last_seq = row.get("seq", None)
         for indexer in local_indexers:
             # heartbeat
@@ -230,10 +253,10 @@ def _start_indexer(config, database):
             else:
                 indexer.update(row)
 
-def start_indexer(database):
+def start_indexer(database, config=None):
     if database in threads:
         return False
-    config = current_app.config
+    config = config or current_app.config
     t = thread.start_new_thread(_start_indexer, (config, database))
     threads[database] = t
     return True

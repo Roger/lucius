@@ -1,3 +1,8 @@
+import time
+
+import couchdb
+
+from flask import g, current_app
 from lupyne.engine import documents
 
 field_types = {"default": documents.Field,
@@ -29,3 +34,38 @@ def get_field(doc, field_name):
     except KeyError:
         return None
     return value
+
+def get_designs(database, config=None):
+    config = config or current_app.config
+    server = config["COUCHDB_SERVER"]
+    db = couchdb.Database("%s/%s/" % (server, database))
+
+    view = db.view("_all_docs", startkey="_design", endkey="_design0",
+            include_docs=True)
+    return view
+
+def get_indexer(database, view, index, start=True):
+    # start indexing if not indexing already
+    not_exists = start_indexer(database)
+    name = "%s/%s/%s" % (database, view, index)
+
+    count = 0
+    while True:
+        count += 1
+        try:
+            return g.indexers[name]
+        except KeyError:
+            if start and not_exists and count <= 5:
+                time.sleep(.1)
+                continue
+            return
+
+
+def _print_(prefix):
+    """
+    Restricted Python Printer
+    """
+    class RestrictedPrint(object):
+        def write(self, text):
+            print "[%s] %s" % (prefix, text)
+    return RestrictedPrint
