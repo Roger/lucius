@@ -3,7 +3,7 @@ from lupyne.engine import documents
 field_types = {"default": documents.Field,
                "map": documents.MapField,
                "numeric": documents.NumericField,
-               "format": documents.FormatField,
+               #"format": documents.FormatField,
                "nested": documents.NestedField,
                "datetime": documents.DateTimeField,
                }
