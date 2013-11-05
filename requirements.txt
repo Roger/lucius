@@ -1,0 +1,10 @@
+CouchDB==0.9dev
+Flask==0.10.1
+JCC==2.17
+Jinja2==2.7.1
+MarkupSafe==0.18
+PyExecJS==1.0.4
+RestrictedPython==3.6.0
+Werkzeug==0.9.4
+lucene==3.6.2
+lupyne==1.4
