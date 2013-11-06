@@ -14,18 +14,22 @@
     $("body").ready(function(){
       $("form").submit(function(e){
         e.preventDefault();
+        $("#output").hide();
         $("#output").html("");
         var query = $("#query").val();
         var design = $("#design").val();
         var include_docs = $("#include_docs").prop("checked");
+        var search_path = "{{url_for('search', database='', view='', index='')}}";
 
-        $.ajax("/db/"+design+"?include_docs="+include_docs+"&q=" + query).done(function(data){
+        $.ajax(search_path+design+"?include_docs="+include_docs+"&q=" + query).done(function(data){
           $("#output").append("<h2>Results:</h2>");
           $.each(data.rows, function(id, doc) {
             var node = formath(doc);
             $("#output").append(node);
             $("#output").append("<hr>");
           });
+
+          $("#output").show();
         });
       });
     });
@@ -51,6 +55,6 @@
     </form>
 
   </div>
-  <div class="well" id="output">
+  <div class="well" id="output" style="display:none">
   </div>
 {% endblock %}

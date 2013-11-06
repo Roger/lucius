@@ -20,14 +20,40 @@ from flask import Flask
 from .utils import get_designs
 from .fixers import FixCouchdbProxy
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path="/_utils/static")
 
 @app.route("/")
 def index():
     return json.dumps({"status": "running",
         "info": "Couchdb pylucene indexer"})
 
-@app.route("/db/<database>/<view>/<index>/correct")
+@app.route("/_utils/info")
+def utils_info():
+    designs = {}
+    for db, design in get_all_designs():
+        designs.setdefault(db, [])
+        name = "%s/%s" % (db, design)
+        started = name in g.indexers
+
+        indexer = None
+        info = {}
+        try:
+            indexer = g.indexers[name]
+            info = ["%s: %s" % (key, value) for key, value in indexer.info().iteritems()]
+            info = "<br>".join(info)
+            started = True
+        except KeyError:
+            started = False
+
+        designs[db].append({"design": design, "started": started, "info": info})
+    return render_template("info.html", designs=designs)
+
+@app.route("/_utils/search")
+def utils_search():
+    designs = ["%s/%s" % d for d in get_all_designs()]
+    return render_template("search.html", designs=designs)
+
+@app.route("/<database>/<view>/<index>/correct")
 def correct(database, view, index):
     field = request.args.get("field")
     words = request.args.getlist("word")
@@ -46,7 +72,7 @@ def correct(database, view, index):
     response = Response(json_data, content_type="application/json")
     return response
 
-@app.route("/db/<database>/<view>/<index>")
+@app.route("/<database>/<view>/<index>")
 def search(database, view, index):
 
     indexer = get_indexer(database, view, index)
@@ -104,7 +130,6 @@ def search(database, view, index):
     response = Response(json_data, content_type="application/json")
     return response
 
-
 def get_all_designs():
     server = couchdb.Server(app.config["COUCHDB_SERVER"])
     designs = []
@@ -123,32 +148,6 @@ def get_all_designs():
                 designs.append((database, view_name))
     return designs
 
-
-@app.route("/_utils/info")
-def utils_info():
-    designs = {}
-    for db, design in get_all_designs():
-        designs.setdefault(db, [])
-        name = "%s/%s" % (db, design)
-        started = name in g.indexers
-
-        indexer = None
-        info = {}
-        try:
-            indexer = g.indexers[name]
-            info = ["%s: %s" % (key, value) for key, value in indexer.info().iteritems()]
-            info = "<br>".join(info)
-            started = True
-        except KeyError:
-            started = False
-
-        designs[db].append({"design": design, "started": started, "info": info})
-    return render_template("info.html", designs=designs)
-
-@app.route("/_utils/search")
-def utils_search():
-    designs = ["%s/%s" % d for d in get_all_designs()]
-    return render_template("search.html", designs=designs)
 
 @app.before_request
 def before_request():
