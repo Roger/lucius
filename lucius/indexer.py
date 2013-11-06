@@ -70,6 +70,9 @@ class DBIndexer(object):
 
         self.views = []
 
+    def close(self):
+        self.indexer.close()
+
     def info(self):
         """
         Returns indexer info
@@ -198,6 +201,7 @@ class DBIndexer(object):
         if self.dirty:
             print "UPDATE SEQ", self.update_seq
             print "Commiting index changes"
+            print
             self.indexer.commit(str(self.update_seq))
             self.dirty = False
         self.last_update = time.time()
@@ -210,15 +214,13 @@ class DBIndexer(object):
         rows = [row["doc"] for row in view if row["doc"]]
         return rows
 
-def _start_indexer(config, db_name):
-    jcc_evn = lucene.getVMEnv()
-    jcc_evn.attachCurrentThread()
-
+def _run_indexer(config, db_name):
     local_indexers = []
-
     server = config["COUCHDB_SERVER"]
     database = couchdb.Database("%s/%s/" % (server, db_name))
 
+    # set the current sequence before design docs retrival
+    design_doc_seq = database.info()["update_seq"]
     update_sequences = []
     for row in get_designs(db_name, config):
         doc = row["doc"]
@@ -239,11 +241,22 @@ def _start_indexer(config, db_name):
         return
 
     update_seq = min(update_sequences)
+    max_update_seq = max(update_sequences)
+    if max_update_seq > design_doc_seq:
+        design_doc_seq = max_update_seq
+
     del update_sequences
 
     for row in database.changes(feed="continuous", heartbeat=10000,
              include_docs=True, yield_beats=True, since=update_seq):
         last_seq = row.get("seq", None)
+
+        # if a design view is updated/created restart the indexer
+        # and close current indexes
+        if row.get("id", "").startswith("_design") and last_seq > design_doc_seq:
+            [indexer.close() for indexer in local_indexers]
+            return True
+
         for indexer in local_indexers:
             # heartbeat
             if not row:
@@ -256,6 +269,17 @@ def _start_indexer(config, db_name):
                 indexer.delete(row)
             else:
                 indexer.update(row)
+
+def _start_indexer(config, db_name):
+    jcc_evn = lucene.getVMEnv()
+    jcc_evn.attachCurrentThread()
+
+    while True:
+        restart = _run_indexer(config, db_name)
+        if not restart:
+            print "Exit db indexer %s" % db_name
+            break
+        print "Restarted db indexer %s" % db_name
 
 def start_indexer(database, config=None):
     if database in threads:
@@ -280,4 +304,3 @@ def get_indexer(database, view, index, start=True):
                 time.sleep(.1)
                 continue
             return
-
