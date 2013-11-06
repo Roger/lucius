@@ -18,6 +18,7 @@ from flask import g, request, Response, render_template
 from flask import Flask
 
 from .utils import get_designs
+from .fixers import FixCouchdbProxy
 
 app = Flask(__name__)
 
@@ -160,6 +161,11 @@ def configure_app(app, config=None):
         app.config.from_object(config)
     else:
         raise Exception, "Needs a config!"
+
+    lucius_prefix = app.config.get("LUCIUS_PREFIX")
+
+    # fix proxy
+    app.wsgi_app = FixCouchdbProxy(app.wsgi_app, script_name=lucius_prefix)
 
 def start_app():
     try:
