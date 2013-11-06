@@ -1,5 +1,6 @@
 import time
 import thread
+import hashlib
 import collections
 
 from flask import current_app, g
@@ -62,7 +63,9 @@ class DBIndexer(object):
         self.db = db
         self.restrict = restrict
         self.func = self.compile_indexer(indexer_name, func)
-        indexer_dir = "%s/%s" % (index_path, indexer_name)
+
+        func_digest = hashlib.md5(func).hexdigest()
+        indexer_dir = "%s/%s-%s" % (index_path, indexer_name, func_digest)
         self.indexer = CustomIndexer(indexer_dir)
         self.dirty = False
         self.update_seq = self.indexer.get_sequence()
