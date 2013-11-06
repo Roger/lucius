@@ -12,12 +12,12 @@ import lucene
 from lucene import SimpleHTMLFormatter, StringReader
 lucene.initVM()
 
-from indexer import GetIndexers, start_indexer
+from indexer import GetIndexers, start_indexer, get_indexer
 
 from flask import g, request, Response, render_template
 from flask import Flask
 
-from .utils import get_designs, get_indexer
+from .utils import get_designs
 
 app = Flask(__name__)
 

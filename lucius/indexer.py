@@ -2,7 +2,7 @@ import time
 import thread
 import collections
 
-from flask import current_app
+from flask import current_app, g
 
 from .utils import LuceneDocument, get_field, get_designs, _print_
 from lupyne import engine
@@ -260,3 +260,20 @@ def start_indexer(database, config=None):
     t = thread.start_new_thread(_start_indexer, (config, database))
     threads[database] = t
     return True
+
+def get_indexer(database, view, index, start=True):
+    # start indexing if not indexing already
+    not_exists = start_indexer(database)
+    name = "%s/%s/%s" % (database, view, index)
+
+    count = 0
+    while True:
+        count += 1
+        try:
+            return g.indexers[name]
+        except KeyError:
+            if start and not_exists and count <= 5:
+                time.sleep(.1)
+                continue
+            return
+

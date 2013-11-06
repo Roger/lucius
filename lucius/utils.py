@@ -44,23 +44,6 @@ def get_designs(database, config=None):
             include_docs=True)
     return view
 
-def get_indexer(database, view, index, start=True):
-    # start indexing if not indexing already
-    not_exists = start_indexer(database)
-    name = "%s/%s/%s" % (database, view, index)
-
-    count = 0
-    while True:
-        count += 1
-        try:
-            return g.indexers[name]
-        except KeyError:
-            if start and not_exists and count <= 5:
-                time.sleep(.1)
-                continue
-            return
-
-
 def _print_(prefix):
     """
     Restricted Python Printer
