@@ -149,13 +149,6 @@ def utils_search():
     designs = ["%s/%s" % d for d in get_all_designs()]
     return render_template("search.html", designs=designs)
 
-@app.route("/db/add/<database>")
-def add_database(database):
-    if not start_indexer(database):
-        return json.dumps({"status": "error",
-            "message": "already indexing %s" % database})
-    return json.dumps({"status": "ok", "message": "indexing %s" % database})
-
 @app.before_request
 def before_request():
     g.indexers = GetIndexers()
