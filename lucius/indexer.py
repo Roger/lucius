@@ -132,6 +132,10 @@ class DBIndexer(object):
                 name, docid, doc_field, field_type, params = related_field
                 related_items.add(docid)
                 doc = self.get_doc(docid)
+                if not doc:
+                    print "Doc Not Found: '%s' for related '%s'" % (docid, name)
+                    continue
+
                 field_value = get_field(doc, doc_field)
                 if not field_value:
                     print "Field Not Found: %s" % doc_field
