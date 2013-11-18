@@ -44,6 +44,9 @@ def get_designs(database, config=None):
             include_docs=True)
     return view
 
+class GuardError(Exception):
+    pass
+
 def _print_(prefix):
     """
     Restricted Python Printer
@@ -52,3 +55,11 @@ def _print_(prefix):
         def write(self, text):
             print "[%s] %s" % (prefix, text)
     return RestrictedPrint
+
+def _getitem_(obj, index):
+    """
+    Restricted Python getitem guard
+    """
+    if obj is not None and type(obj) in (list, tuple, dict, LuceneDocument):
+        return obj[index]
+    raise GuardError('Key: "%s" in Object Type: "%s"' % (index, type(obj)))

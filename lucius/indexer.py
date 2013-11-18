@@ -5,7 +5,8 @@ import collections
 
 from flask import current_app, g
 
-from .utils import LuceneDocument, get_field, get_designs, _print_
+from .utils import LuceneDocument, get_field, get_designs
+from .utils import _print_, _getitem_
 from lupyne import engine
 from lupyne.engine import indexers
 
@@ -102,7 +103,7 @@ class DBIndexer(object):
             safe_globals.update(dict(
                             _print_=_print_(indexer_name),
                             _getattr_=getattr,
-                            _getitem_=lambda o, k: o[k],
+                            _getitem_=_getitem_,
                             __builtins__=safe_builtins)
                             )
             obj = compile_restricted(func, "<string>", "exec")
