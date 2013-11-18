@@ -5,7 +5,7 @@ import collections
 
 from flask import current_app, g
 
-from .utils import LuceneDocument, get_field, get_designs
+from .utils import LuceneDocument, DotDict, get_field, get_designs
 from .utils import _print_, _getitem_
 from lupyne import engine
 from lupyne.engine import indexers
@@ -118,11 +118,10 @@ class DBIndexer(object):
         self.update_related(row["id"])
 
         try:
-            luc_docs = self.func(row["doc"])
-        except Exception, error:
-            print "Invalid indexer"
-            print error
+            luc_docs = self.func(DotDict(row["doc"]))
+        except Exception, e:
             luc_docs = []
+            print "Error!", e
 
         if not luc_docs:
             self.dirty = True

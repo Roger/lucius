@@ -1,3 +1,4 @@
+import copy
 import time
 
 import couchdb
@@ -25,6 +26,30 @@ class LuceneDocument(documents.document.Document):
 
     def add_related(self, name, docid, doc_field, field_type="default", **params):
         self._related_fields.append([name, docid, doc_field, field_type, params])
+
+class DotDict(dict):
+    """
+    defaultdict like, with dot notation for key access
+    """
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+    def __getitem__(self, key):
+        try:
+            val = dict.__getitem__(self, key)
+        except KeyError:
+            return None
+
+        if isinstance(val, dict) and not isinstance(val, DotDict):
+            val = DotDict(val)
+            self[key] = val
+        return val
+    __getattr__ = __getitem__
+
+    def __deepcopy__(self, memo):
+        return DotDict([(copy.deepcopy(k, memo), copy.deepcopy(v, memo))\
+                for k, v in self.items()])
+
 
 def get_field(doc, field_name):
     value = doc
@@ -60,6 +85,7 @@ def _getitem_(obj, index):
     """
     Restricted Python getitem guard
     """
-    if obj is not None and type(obj) in (list, tuple, dict, LuceneDocument):
+    if obj is not None and type(obj) in (list, tuple, dict, DotDict,
+            LuceneDocument):
         return obj[index]
     raise GuardError('Key: "%s" in Object Type: "%s"' % (index, type(obj)))
