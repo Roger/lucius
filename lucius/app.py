@@ -96,7 +96,7 @@ def search(database, view, index):
     skip = skip.isdigit() and int(skip) or 0
 
     rows_by_id = {}
-    rows= []
+    rows = []
     to_fetch = []
     hits = indexer.search(query, limit=limit+skip, scores=True)
     for num, hit in enumerate(hits):
@@ -108,12 +108,14 @@ def search(database, view, index):
         if include_docs:
             to_fetch.append(_id)
 
-        row = {"__lucene__": {}}
+        row = {"__lucene__": {}, "fields": {}}
         for key, value in hit.dict().iteritems():
-            if key.startswith("_") and not key == '_id':
+            if key == '_id':
+                row["id"] = value
+            elif key.startswith("_"):
                 row["__lucene__"][key] = value
-                continue
-            row[key] = value
+            else:
+                row["fields"][key] = value
 
         #row["body"] = body
         rows.append(row)
