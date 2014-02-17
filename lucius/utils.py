@@ -89,3 +89,27 @@ def _getitem_(obj, index):
             LuceneDocument):
         return obj[index]
     raise GuardError('Key: "%s" in Object Type: "%s"' % (index, type(obj)))
+
+def _import_(_valid_import_modules):
+    def importer(mname, globals=None, locals=None, fromlist=None,
+                       level=-1):
+        if fromlist is None:
+            fromlist = ()
+        if '*' in fromlist:
+            raise GuardError("'from %s import *' is not allowed")
+        if globals is None:
+            globals = {}
+        if locals is None:
+            locals = {}
+
+        if level != -1:
+            raise GuardError("Using import with a level specification isn't "
+                               "supported by AccessControl: %s" % mname)
+        if fromlist is None:
+            fromlist = ()
+
+        if mname not in _valid_import_modules:
+            raise GuardError('"%s" is not allowed' % mname)
+
+        return __import__(mname, globals, locals, fromlist)
+    return importer

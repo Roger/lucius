@@ -11,4 +11,6 @@ DISABLE_AUTO_SYNC = True
 
 INDEX_PATH = '/tmp/couchdb_index/'
 
+ALLOWED_MODULES = []
+
 PORT = 4242

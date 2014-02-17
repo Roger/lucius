@@ -8,7 +8,7 @@ import collections
 from flask import current_app, g
 
 from .utils import LuceneDocument, DotDict, get_field, get_designs
-from .utils import _print_, _getitem_
+from .utils import _print_, _getitem_, _import_
 from lupyne import engine
 from lupyne.engine import indexers
 
@@ -63,9 +63,13 @@ class CustomIndexer(engine.Indexer):
 
 class DBIndexer(object):
     def __init__(self, db, indexer_name, func, index_path="/tmp/couchdb_index",
-            restrict=True):
+            restrict=True, allowed_modules=[]):
+        if not restrict and allowed_modules:
+            raise Exception("allowed_modules only used if restricted is on")
+
         self.db = db
         self.restrict = restrict
+        self.allowed_modules = allowed_modules
         self.func = self.compile_indexer(indexer_name, func)
 
         func_digest = hashlib.md5(func).hexdigest()
@@ -105,6 +109,7 @@ class DBIndexer(object):
 
         eval_fn = "<Eval: %s>" % indexer_name
         if self.restrict:
+            safe_builtins['__import__'] = _import_(self.allowed_modules)
             safe_globals.update(dict(
                             _print_=_print_(indexer_name),
                             _getattr_=getattr,
@@ -239,7 +244,8 @@ def _run_indexer(config, db_name):
             view_name = doc["_id"].split("_design/", 1)[1] + "/" + key
             indexer_name = "%s/%s" % (db_name, view_name)
             indexer = DBIndexer(database, indexer_name, value["index"],
-                    config["INDEX_PATH"], config["RESTRICT"])
+                    config["INDEX_PATH"], config["RESTRICT"],
+                    config['ALLOWED_MODULES'])
             local_indexers.append(indexer)
             db_indexers[indexer_name] = indexer
             update_sequences.append(indexer.update_seq)
