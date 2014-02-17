@@ -1,6 +1,8 @@
+import sys
 import time
 import thread
 import hashlib
+import traceback
 import collections
 
 from flask import current_app, g
@@ -22,6 +24,7 @@ cache = SimpleCache()
 
 db_indexers = {}
 threads = {}
+
 
 class GetIndexers(dict):
     def __getitem__(self, key):
@@ -99,6 +102,8 @@ class DBIndexer(object):
     def compile_indexer(self, indexer_name, func):
         safe_globals = dict(LuceneDocument=LuceneDocument)
         safe_locals = {}
+
+        eval_fn = "<Eval: %s>" % indexer_name
         if self.restrict:
             safe_globals.update(dict(
                             _print_=_print_(indexer_name),
@@ -106,9 +111,9 @@ class DBIndexer(object):
                             _getitem_=_getitem_,
                             __builtins__=safe_builtins)
                             )
-            obj = compile_restricted(func, "<string>", "exec")
+            obj = compile_restricted(func, eval_fn, "exec")
         else:
-            obj = compile(func, "<string>", "exec")
+            obj = compile(func, eval_fn, "exec")
         eval(obj, safe_globals, safe_locals)
         index_doc = safe_locals.get("fun")
         return index_doc
@@ -119,9 +124,9 @@ class DBIndexer(object):
 
         try:
             luc_docs = self.func(DotDict(row["doc"]))
-        except Exception, e:
+        except Exception, err:
             luc_docs = []
-            print "Error!", e
+            print "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]))
 
         if not luc_docs:
             self.dirty = True
