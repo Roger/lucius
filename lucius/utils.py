@@ -1,7 +1,6 @@
 import copy
-import time
 
-import couchdb
+import coucher
 
 from flask import g, current_app
 from lupyne.engine import documents
@@ -61,12 +60,8 @@ def get_field(doc, field_name):
     return value
 
 def get_designs(database, config=None):
-    config = config or current_app.config
-    server = config["COUCHDB_SERVER"]
-    db = couchdb.Database("%s/%s/" % (server, database))
-
-    view = db.view("_all_docs", startkey="_design", endkey="_design0",
-            include_docs=True)
+    view = database.view("_all_docs", startkey="_design", endkey="_design0",
+                         include_docs=True)
     return view
 
 class GuardError(Exception):

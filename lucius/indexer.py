@@ -15,7 +15,7 @@ from lupyne.engine import indexers
 from RestrictedPython import compile_restricted
 from RestrictedPython.Guards import safe_builtins
 
-import couchdb
+import coucher
 
 import lucene
 
@@ -229,13 +229,13 @@ class DBIndexer(object):
 
 def _run_indexer(config, db_name):
     local_indexers = []
-    server = config["COUCHDB_SERVER"]
-    database = couchdb.Database("%s/%s/" % (server, db_name))
+    server = coucher.Server(config["COUCHDB_SERVER"])
+    database = server[db_name]
 
     # set the current sequence before design docs retrival
     design_doc_seq = database.info()["update_seq"]
     update_sequences = []
-    for row in get_designs(db_name, config):
+    for row in get_designs(database):
         doc = row["doc"]
         ft_view = doc.get("ft", None)
         if not ft_view:

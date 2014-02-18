@@ -6,7 +6,7 @@ try:
 except ImportError:
     import json
 
-import couchdb
+import coucher
 
 import lucene
 from lucene import SimpleHTMLFormatter, StringReader
@@ -133,10 +133,10 @@ def search(database, view, index):
     return response
 
 def get_all_designs():
-    server = couchdb.Server(app.config["COUCHDB_SERVER"])
+    server = coucher.Server(app.config["COUCHDB_SERVER"])
     designs = []
     for database in server:
-        if database.startswith("_"):
+        if database.name.startswith("_"):
             continue
 
         for design in get_designs(database):
@@ -147,7 +147,7 @@ def get_all_designs():
 
             for key in ft_view:
                 view_name = doc["_id"].split("_design/", 1)[1] + "/" + key
-                designs.append((database, view_name))
+                designs.append((database.name, view_name))
     return designs
 
 
