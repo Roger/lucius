@@ -2,6 +2,8 @@ import copy
 
 import coucher
 
+import datetime
+
 from flask import g, current_app
 from lupyne.engine import documents
 
@@ -18,7 +20,19 @@ class LuceneDocument(documents.document.Document):
         self._related_fields = []
         super(LuceneDocument, self).__init__()
 
-    def add_field(self, name, value, field_type="default", **params):
+    def add_field(self, name, value, field_type=None, **params):
+        if not value:
+            return
+        if field_type is None:
+            field_type = "default"
+            if isinstance(value, (int, float, long)):
+                field_type = "numeric"
+            elif isinstance(value, (datetime.date, datetime.datetime)):
+                field_type = "datetime"
+            elif isinstance(value, bool):
+                field_type = "default"
+                value = str(value).lower()
+
         cls = field_types[field_type]
         field = cls(name, **params)
         self.add(next(field.items(*[value])))
